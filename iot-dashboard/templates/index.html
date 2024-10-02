@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Data Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #488dc2;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+        .box {
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            width: 45%;
+            box-sizing: border-box;
+            background-color: white;
+        }
+        .square-box {
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            width: 45%;
+            box-sizing: border-box;
+            position: relative;
+            height: 300px;
+            background-color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .circle {
+            border: 2px solid #ccc;
+            border-radius: 50%;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        .dot {
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            position: absolute;
+        }
+        .blue-square {
+            width: 20px;
+            height: 20px;
+            background-color: #488dc2;
+            position: absolute;
+            transform: translate(50%, -50%);
+        }
+        .label {
+            position: absolute;
+            font-size: 12px;
+            color: black;
+            transform: translate(-50%, -50%);
+        }
+        .dot-label {
+            font-size: 12px;
+            color: black;
+            transform: translate(-50%, -20px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="box" id="bus24T">
+            <h3>Bus 24T</h3>
+            <p>Occupancy: <span id="occupancy24T">N/A</span></p>
+        </div>
+        <div class="box" id="bus34">
+            <h3>Bus 34</h3>
+            <p>Occupancy: <span id="occupancy34">N/A</span></p>
+        </div>
+    </div>
+    <div class="container">
+        <div class="box" id="combatentes">
+            <h3>COMBATENTES</h3>
+            <p>Temperature: <span id="temperature">N/A</span>°C</p>
+            <p>Humidity: <span id="humidity">N/A</span>%</p>
+            <p>Pollution: <span id="pollution">N/A</span></p>
+            <p>Light: <span id="light">N/A</span></p>
+            <p>BUS 24T: ETA = <span id="eta24T">N/A</span>, Stop = <span id="stop24T">N/A</span></p>
+            <p>BUS 34: ETA = <span id="eta34">N/A</span>, Stop = <span id="stop34">N/A</span></p>
+        </div>
+        <div class="square-box">
+            <div class="circle">
+                <div class="dot" id="dot24T"></div>
+                <div class="dot-label" id="label24T">24T</div>
+                <div class="dot" id="dot34"></div>
+                <div class="dot-label" id="label34">34</div>
+                <div class="blue-square" id="combatentes-marker"></div>
+                <div class="label" id="combatentes-label">COMBATENTES</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function mapPollutionValue(value) {
+            switch (value) {
+                case "0":
+                    return 'Fresh Air';
+                case "1":
+                    return 'Low';
+                case "2":
+                    return 'High';
+                case "3":
+                    return 'DANGEROUS';
+                default:
+                    return 'Unknown';
+            }
+        }
+
+        function updatePositions(data) {
+            if (data.location) {
+                const bus24T = data.location['24T'];
+                const bus34 = data.location['34'];
+
+                if (bus24T) {
+                    document.getElementById('occupancy24T').innerText = bus24T.occupancy;
+                    document.getElementById('eta24T').innerText = bus24T.eta;
+                    document.getElementById('stop24T').innerText = data.stop_requests.bus_24T ? 'Yes' : 'No';
+                    updateDotPosition('dot24T', 'label24T', bus24T.latitude, bus24T.longitude);
+                }
+
+                if (bus34) {
+                    document.getElementById('occupancy34').innerText = bus34.occupancy;
+                    document.getElementById('eta34').innerText = bus34.eta;
+                    document.getElementById('stop34').innerText = data.stop_requests.bus_34 ? 'Yes' : 'No';
+                    updateDotPosition('dot34', 'label34', bus34.latitude, bus34.longitude);
+                }
+            }
+
+            if (data.weather) {
+                document.getElementById('temperature').innerText = data.weather.Temperature || 'N/A';
+                document.getElementById('humidity').innerText = data.weather.Humidity || 'N/A';
+                document.getElementById('pollution').innerText = mapPollutionValue(data.weather.Pollution);
+                document.getElementById('light').innerText = data.weather.Light || 'N/A';
+            }
+        }
+
+        function updateDotPosition(dotId, labelId, latitude, longitude) {
+            const dot = document.getElementById(dotId);
+            const label = document.getElementById(labelId);
+
+            const squareBox = document.querySelector('.square-box');
+            const circleContainer = squareBox.querySelector('.circle');
+            const circleWidth = circleContainer.offsetWidth;
+            const circleHeight = circleContainer.offsetHeight;
+            
+            const centerX = circleWidth / 2;
+            const centerY = circleHeight / 2;
+            
+            const x = centerX + (centerX-2) * latitude -12;
+            const y = centerY - (centerY+6) *longitude -20;
+
+            dot.style.transform = `translate(${x}px, ${y}px)`;
+            label.style.transform = `translate(${x}px, ${y - 20}px)`;
+        }
+
+        function fetchData() {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => {
+                    updatePositions(data);
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const combatentesMarker = document.getElementById('combatentes-marker');
+            const combatentesLabel = document.getElementById('combatentes-label');
+
+            const squareBox = document.querySelector('.square-box');
+            const circleContainer = squareBox.querySelector('.circle');
+            const circleWidth = circleContainer.offsetWidth;
+            const circleHeight = circleContainer.offsetHeight;
+            
+            const centerX = circleWidth / 2;
+            const centerY = circleHeight / 2;
+            
+            const stop_x = centerX;
+            const stop_y = centerY-centerY;
+
+            combatentesMarker.style.transform = `translate(-50%, -50%)`;
+            combatentesMarker.style.left = `${stop_x}px`;
+            combatentesMarker.style.top = `${stop_y}px`;
+
+            combatentesLabel.style.transform = `translate(-50%, -50%)`;
+            combatentesLabel.style.left = `${stop_x}px`;
+            combatentesLabel.style.top = `${-stop_y + 20}px`;
+
+        });
+
+        setInterval(fetchData, 100);
+        fetchData();
+    </script>
+</body>
+</html>
